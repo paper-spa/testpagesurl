@@ -1,0 +1,63 @@
+name: Create some deployments
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  deployments: write
+
+jobs:
+  generate:
+    runs-on: [ self-hosted ]
+    steps:
+      - name: Create a bunch of deployments
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FIRST_DEPLOY_ID=$(curl \
+              --silent \
+              --fail-with-body \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/deployments \
+              -d '{"ref":"main","description":"curl: First created, last updated","environment":"staging","required_contexts":[]}' \
+              | jq '.id'
+          )
+          sleep 1
+          SECOND_DEPLOY_ID=$(curl \
+              --silent \
+              --fail-with-body \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/deployments \
+              -d '{"ref":"main","description":"curl: Last created, first updated","environment":"staging","required_contexts":[]}' \
+              | jq '.id'
+          )
+          sleep 1
+          curl \
+              --silent \
+              --fail-with-body \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/deployments/$SECOND_DEPLOY_ID/statuses \
+              -d '{"state":"success"}'
+          sleep 1
+          curl \
+              --silent \
+              --fail-with-body \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/deployments/$FIRST_DEPLOY_ID/statuses \
+              -d '{"state":"success"}'
